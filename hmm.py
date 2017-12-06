@@ -1,52 +1,7 @@
 import numpy as np
 from scipy.sparse import csr_matrix
 import copy
-class MarkovChain(object):
-    """
-    Markov Chain class
-    n_states: number of states in the Markov Chain
-    initial_prob: Initial probablity distribution [n_states, ]
-    transitional_prob: Transition probability matrix [n_states, n_states]
-    """
-    def __init__(self, q=np.array(1.0), A=np.array(1.0)):
-        self.initial_prob = q
-        self.transition_prob = A
-
-    @property
-    def n_states(self):
-        return self.initial_prob.shape[0]
-
-    def init_left_right(self, n_states, state_duration=10):
-        """
-        Initialize a single MarkovChain object to a finite-duration first-order left-right structure
-        allowing transitions from every state only to the nearest following state.
-        Inputs:
-        -------
-        n_states: Desired number of Markov states
-        state_duration: Average number of consecutive samples in each state.
-                        len(state_duration) == n_states or state_duration is scalar.
-        """
-        if n_states < 1:
-            raise ValueError("Number of states must be < 1")
-        if np.isscalar(state_duration):
-            state_duration = [state_duration] * n_states
-        elif len(state_duration) != n_states:
-            raise ValueError("Length of state_duration must be equal to n_states")
-
-        min_diag_prob = 0.1 # Initial min diagonal transition prob value.
-        D = np.array([max(1, dur) for dur in state_duration], dtype='float')
-        # Diagonal values of transition prob matrix
-        aii = np.array([max(min_diag_prob, val) for val in (D - 1) / D], dtype='float')
-        # Off diagonal values, only one non-zero off-diagonal
-        aij = 1 - aii;
-        # to do: make A matrix sparse
-        A = np.zeros((n_states, n_states + 1)) # has an end state, thus (n_states + 1) column
-        for i in range(0, n_states):
-            A[i][i] = aii[i]
-            A[i][i+1] = aij[i]
-        p0 = np.concatenate( (np.ones((1)), np.zeros((n_states - 1))) )
-        self.initial_prob = p0
-        self.transition_prob = A
+from from markov_chain import MarkovChain
 
 
 class HMM(object):
@@ -152,9 +107,9 @@ class HMM(object):
         logP_old = float('-Inf')
         logP_delta = float('Inf') # logP improvement in last step
         for n_training in range(0, n_iter):
-            aS = self.adapt_start() # to implement
+            aS = self.adapt_start()
             for r in range(0, len(l_data)):
-                aS, logP = self.adapt_accum(aS, obs_data[ixT[r]: ixT[r+1]]) # to implement
+                aS, logP = self.adapt_accum(aS, obs_data[ixT[r]: ixT[r+1]])
             logprobs[n_training] += logP
             logP_delta = logprobs[n_training] - logP_old
             logP_old = logprobs[n_training]
@@ -193,3 +148,66 @@ class HMM(object):
         hmm.init_leftright_outputdistr(obs_data, l_data) # crude initialize hmm.output_distr
         # standard training
         hmm.train(obs_data, l_data, 5, np.log(1.01))
+
+    def adapt_start(self):
+        """
+        Initialize adaptation data structure for a single HMM object, to be saved between subsequent calls to adapt_accum.
+        Return:
+        ------
+        a_state: object representing zero weight of previous observed data
+        a_state.MC: for hmm.state_gen sub-object
+        a_state.Out: for hmm.output_distr sub-object
+        a_state.LogProb: for the accumulated log(prob(observations))
+        """
+        a_state = AState(self.state_gen.adapt_start(), self.output_distr.adapt_start(), 0) # to implement
+        return a_state
+
+    def adapt_accum(self, a_state, obs_data):
+        """
+        Method to adapt to single HMM object to observed data, by accumulating sufficient statistics from the data,
+        for later updating of the object by method adapt_set
+        Input:
+        --------
+        a_state: Accumulated adaptation state, object which has field state_gen, output_distr, logprob
+        obs_data: [n_samples, n_features] a sequence of data supposed to be drawn from this hmm
+        
+        Result:
+        --------
+        a_state: Accumulated adaptation state, including this subset of observed data.
+        logP: Accumulated log( P(obs_data| hmm) )
+
+        Method:
+        --------
+        From hmm.output_distr obtain observation probabilities. 
+        hmm.state_gen uses output prob to compute conditional prob P(state | obs_data), 
+        which are further used to adapt output_distr
+        """
+
+        pX, l_scale = self.output_distr.prob(obs_data) # scaled observation prob (to implement!)
+        # pX[i][t] * exp(l_scale[t]) == P(obs_data[t][:] | hmm.output_distr[i])
+        a_state.MC, gamma, logP = self.state_gen.adapt_accum(a_state.MC, pX) # to implement!
+        # gamma[i][t] = P[hmmState = i | obs_data, hmm]
+        a_state.Out = self.output_distr.adapt_accum(a_state.Out, obs_data, gamma) # to implement!
+        if len(l_scale) == 1:
+            # when? len(hmm.output_distr) == 1
+            a_state.LogProb += logP + obs_data.shape[0] * l_scale
+        else:
+            a_state.LogProb += logP + np.sum(l_scale) # logprob(hmm, obs_data)
+        return a_state, a_state.LogProb
+
+    def adapt_set(self, a_state):
+        """
+        Set the HMM object using accumulated statistics from observed training data.
+        Input:
+        ------
+        a_state: accumulated statistics from previous calls of adapt_accum
+        """
+        self.state_gen = self.state_gen.adapt_set(a_state.MC) # to implement
+        self.output_distr = self.output_distr.adapt_set(a_state.Out) # to implement
+
+
+class AState(object):
+    def __init__(self, mc_state, out_state, logprob):
+        self.MC = mc_state
+        self.Out = out_state
+        self.LogProb = logprob # to store the accumulated logprob of observation
