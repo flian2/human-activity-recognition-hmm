@@ -56,7 +56,7 @@ class MarkovChain(object):
         aS: Zero initialized adaptation data object.
 
         """
-        aS = AMcState()
+        aS = McAState()
         aS.pI = np.zeros(self.initial_prob.shape) # accumulated sum of pI[j] == P[ s(1) = j | each training sub-sequence]
         aS.pS = np.zeros(self.transition_prob.shape) # accumulated sum of pS[i][j] == P[ s(t)=i, s(t+1)=j | all training data]
         return aS
@@ -84,8 +84,8 @@ class MarkovChain(object):
         A = self.transition_prob
 
         # Get scaled forward backward variables
-        alpha_hat, c = self.forward(pX) # to implement!
-        beta_hat = self.backward(pX, c) # to implement!
+        alpha_hat, c = self.forward(pX)
+        beta_hat = self.backward(pX, c)
 
         # Compute gamma
         gamma = np.multiply( np.multiply(alpha_hat, beta_hat), np.tile(c[:T], (n_states, 1)) )
@@ -226,7 +226,7 @@ class MarkovChain(object):
 
 
 
-class AMcState(object):
+class McAState(object):
     """
     adapation data structure, has field pI (initial probability), pS (state transitional probability) 
     """

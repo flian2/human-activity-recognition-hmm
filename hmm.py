@@ -185,7 +185,7 @@ class HMM(object):
 
         pX, l_scale = self.output_distr.prob(obs_data) # scaled observation prob (to implement!)
         # pX[i][t] * exp(l_scale[t]) == P(obs_data[t][:] | hmm.output_distr[i])
-        a_state.MC, gamma, logP = self.state_gen.adapt_accum(a_state.MC, pX) # to implement!
+        a_state.MC, gamma, logP = self.state_gen.adapt_accum(a_state.MC, pX)
         # gamma[i][t] = P[hmmState = i | obs_data, hmm]
         a_state.Out = self.output_distr.adapt_accum(a_state.Out, obs_data, gamma) # to implement!
         if len(l_scale) == 1:
@@ -202,7 +202,7 @@ class HMM(object):
         ------
         a_state: accumulated statistics from previous calls of adapt_accum
         """
-        self.state_gen = self.state_gen.adapt_set(a_state.MC) # to implement
+        self.state_gen.adapt_set(a_state.MC)
         self.output_distr = self.output_distr.adapt_set(a_state.Out) # to implement
 
 
