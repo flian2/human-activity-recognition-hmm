@@ -48,10 +48,11 @@ class ProbDistr(object):
 
     def prob(self, x):
         """
-        Default method is no prob method is implemented in the subclass.
+        Default method is the prob method is implemented in the subclass.
         Compute probability of each element in observed data sequence.
         Input:
         -------
+        (to change later: add input pD_list)
         x: 2D array [n_samples, n_features]
         Return:
         -------

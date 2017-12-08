@@ -1,7 +1,9 @@
+from __future__ import division
 import numpy as np
 from scipy.sparse import csr_matrix
 import copy
-from from markov_chain import MarkovChain
+from markov_chain import MarkovChain
+from prob_distr import ProbDistr
 
 
 class HMM(object):
@@ -46,11 +48,17 @@ class HMM(object):
     @output_distr.setter
     def output_distr(self, pD):
         # to do: check type after I decide which object to use
-        d_size = pD[0].data_size
-        if all( pD[i].data_size == d_size for i in range(0, len(pD)) ):
-            self._output_distr = pD
+        if not isinstance(pD, list):
+            if isinstance(pD, ProbDistr):
+                self._output_distr = pD
+            else:
+                raise ValueError("Must be a ProbDistr object")
         else:
-            raise ValueError("All distribution must have the same data size")
+            d_size = pD[0].data_size
+            if all( pD[i].data_size == d_size for i in range(0, len(pD))):
+                self._output_distr = pD 
+            else:
+                raise ValueError("All distribution must have the same data size")
 
     def init_leftright_outputdistr(self, obs_data, l_data):
         """
@@ -72,14 +80,13 @@ class HMM(object):
         # Use average length length of each state to initialize output distribution
         for i in range(0, len(n_states)):
             data_per_state = np.zeros((0, n_features))
-            for r in range(0: len(n_sequences)):
+            for r in range(0, len(n_sequences)):
                 # staring point for the i-th state in the r-th subsequence
                 d_start = start_ind[r] + (i * l_data[r]) / n_states
                 d_end = start_ind[r] + ((i+1) * l_data[r]) / n_states # exclusive
                 data_per_state = np.concatenate((data_per_state, obs_data[d_start:d_end, :]), axis=0)
             # Very crude initialization, should be refined by training
-            # to do: can we skip init here? Just train later
-            self.output_distr[i] = self.output_distr.init(data_per_state)
+            self.output_distr[i] = self.output_distr.init_by_data(data_per_state)
 
     def train(self, obs_data, l_data, n_iter=10, min_step=float('Inf')):
         """
@@ -159,7 +166,9 @@ class HMM(object):
         a_state.Out: for hmm.output_distr sub-object
         a_state.LogProb: for the accumulated log(prob(observations))
         """
-        a_state = AState(self.state_gen.adapt_start(), self.output_distr.adapt_start(), 0) # to implement
+        a_state_mc = self.state_gen.adapt_start()
+        a_state_out = self.output_distr[0].adapt_start(self.output_distr)
+        a_state = AState(a_state_mc, a_state_out, 0)
         return a_state
 
     def adapt_accum(self, a_state, obs_data):
@@ -183,11 +192,11 @@ class HMM(object):
         which are further used to adapt output_distr
         """
 
-        pX, l_scale = self.output_distr.prob(obs_data) # scaled observation prob (to implement!)
+        pX, l_scale = self.output_distr[0].prob(self.output_distr, obs_data) # scaled observation prob
         # pX[i][t] * exp(l_scale[t]) == P(obs_data[t][:] | hmm.output_distr[i])
         a_state.MC, gamma, logP = self.state_gen.adapt_accum(a_state.MC, pX)
         # gamma[i][t] = P[hmmState = i | obs_data, hmm]
-        a_state.Out = self.output_distr.adapt_accum(a_state.Out, obs_data, gamma) # to implement!
+        a_state.Out = self.output_distr[0].adapt_accum(self.output_distr, a_state.Out, obs_data, gamma)
         if len(l_scale) == 1:
             # when? len(hmm.output_distr) == 1
             a_state.LogProb += logP + obs_data.shape[0] * l_scale
@@ -203,7 +212,31 @@ class HMM(object):
         a_state: accumulated statistics from previous calls of adapt_accum
         """
         self.state_gen.adapt_set(a_state.MC)
-        self.output_distr = self.output_distr.adapt_set(a_state.Out) # to implement
+        self.output_distr = self.output_distr[0].adapt_set(self.output_distr, a_state.Out)
+
+    def rand(self, n_samples):
+        """
+        Genearte a random sequence of data from a given HMM.
+        Input:
+        ------
+        n_samples: Maximum number of samples generated
+        Return:
+        ------
+        X: [nS, n_features]. Sequence of generated output samples.
+        S: [nS, ]. Sequence of integer state values
+        """
+        S = self.state_gen.rand(n_samples)
+        nS = len(S)
+        X = np.zeros((nS, self.data_size))
+        for s in range(1, int(max(S)) + 1):
+            X[S == s, :] = self.output_distr[s - 1].rand(sum(S == s)).reshape(-1, self.data_size)
+        return X, S
+    
+    def logprob(self, x):
+        """
+        to implement
+        """
+        return
 
 
 class AState(object):

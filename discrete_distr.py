@@ -37,15 +37,16 @@ class DiscreteDistr(ProbDistr):
             rdata[i] = np.sum([r0[i] > thresh for thresh in cum_prob]) + 1
         return rdata
 
-    def prob(self, Z):
+    def prob(self, Z, pD_list=None):
         """
-        Probability of integer sequence, drawn from given Discrete distribution.
+        Probability of integer sequence, for a list of Discrete distributions.
         Input:
         ------
         Z: [n_samples, 1] or [n_samples, 1], data sequence
+        pD_list: list of DiscreteDistr objects
         Return:
         ------
-        p: 1D array [n_samples, ]. Probability for each element in Z.
+        p: 1D array [n_pD, n_samples]. p[i, t] Probability for element t in Z for object i.
         logS: scalar factor, always == 0. True probability = p * exp(logS)
         """
         if len(Z.shape) > 1 and Z.shape[1] > 1:
@@ -53,10 +54,14 @@ class DiscreteDistr(ProbDistr):
         Z = np.ravel(Z)
         n_samples = Z.shape[0]
         Z = np.round(Z)
-        p = np.zeros((n_samples)) # if Z is out of range, probability is zero
+        if pD_list is None:
+            pD_list = [self]
+        n_pD = len(pD_list)
+        p = np.zeros((n_pD, n_samples)) # if Z is out of range, probability is zero
         
-        positive_prob_mask = [(Z >= 1) & (Z <= len(self.prob_mass))]
-        p[positive_prob_mask] = self.prob_mass[(Z[positive_prob_mask] - 1).tolist()]
+        for i in range(0, n_pD):
+            positive_prob_mask = [(Z >= 1) & (Z <= len(pD_list[i].prob_mass))]
+            p[i][positive_prob_mask] = pD_list[i].prob_mass[(Z[positive_prob_mask] - 1).astype(int)]
         logS = 0.0
         return p, logS
 
@@ -84,31 +89,34 @@ class DiscreteDistr(ProbDistr):
             freq_obs[m - 1] = 1 + np.sum(x == m) # smooth by adding 1, no zero frequencies.
         self.prob_mass = freq_obs / np.sum(freq_obs)
 
-    def adapt_start(self):
+    def adapt_start(self, pD_list):
         """
         Start DiscreteDistr object adaptation to observed data, by initializing accumulator data structure.
         Input:
-        self: a single DiscreteDistr object (may change to list of objects later).
+        pD_list: a list of DiscreteDistr objects
         Return:
         -------
-        a_state: the accumulator data structure object
+        a_state_list: the list of accumulator data structure object, same size of pD
         """
-        a_state = DiscreteDAState()
-        a_state.sum_weight = np.array([0.0])
-        return a_state
+        # self is just used to call the instance method, no real data members of self are used (change later)
+        a_state_list = [DiscreteDAState() for i in range(0, len(pD_list))]
+        for i in range(0, len(pD_list)):
+            a_state_list[i].sum_weight = np.array([0.0])
+        return a_state_list
 
-    def adapt_accum(self, a_state, obs_data, obs_weight=None):
+    def adapt_accum(self, pD_list, a_state_list, obs_data, obs_weight=None):
         """
         Adapt to a single DiscreteDistr object (may change later) by accumulating sufficient statistics from data.
         Input:
         ------
         self: a single DiscreteDistr object (may change later)
-        a_state: accumulator data structure object from previous calls
+        pD_list: a list of DiscreteDistr objects
+        a_state_list: a list of accumulator data structure object from previous calls
         obs_data: [n_samples, ] or [n_samples, 1]. Observation data sequence.
-        obs_weight: same size as obs_data. Default is a vector with all 1's.
+        obs_weight: [n_pD, n_samples] Default is a vector with all 1's.
         Return:
         ------
-        a_state
+        a_state_list
         """
         if len(obs_data.shape) > 1 and obs_data.shape[1] > 1:
             raise ValueError("Data must be one dimension")
@@ -116,26 +124,36 @@ class DiscreteDistr(ProbDistr):
         obs_data = np.round(obs_data)
         max_obs = np.max(obs_data)
         n_samples = obs_data.shape[0]
+        n_pD = len(pD_list)
 
         if obs_weight is None:
-            obs_weight = np.ones((n_samples))
+            obs_weight = np.ones((n_pD, n_samples))
+        for i in range(0, n_pD):
+            max_label = max(max_obs, len(self.prob_mass))
+            prev_max_label = a_state_list[i].sum_weight.shape[0]
+            if prev_max_label < max_label:
+                # extend size
+                a_state_list[i].sum_weight = np.concatenate( (a_state_list[i].sum_weight, np.zeros((max_label - prev_max_label))) )
+            for m in range(1, max_label + 1):
+                a_state_list[i].sum_weight[m - 1] += np.sum(obs_weight[i, obs_data == m])
+        return a_state_list
 
-        max_label = max(max_obs, len(self.prob_mass))
-        prev_max_label = a_state.sum_weight.shape[0]
-        if prev_max_label < max_label:
-            # extend size
-            a_state.sum_weight = np.concatenate( (a_state.sum_weight, np.zeros((max_label - prev_max_label))) )
-        for m in range(1, max_label + 1):
-            a_state.sum_weight[m - 1] += np.sum(obs_weight[obs_data == m])
-        return a_state
-
-    def adapt_set(self, a_state):
+    def adapt_set(self, pD_list, a_state_list):
         """
         Finally adapt a DiscreteDistr object using accumulated data.
-        Input: self is a single object (may change later)
+        Input:
+        -------
+        self is a single object (may change later)
+        pD_list: list of DiscreteDistr objects used in the adaptation.
+        a_state_list: list of accumulator data structure from previous calls of adapt_accum
+        Return:
+        -------
+        pD_list: list of DiscreteDistr objects
         """
-        a_state.sum_weight += self.pseudo_count * 1.0 / len(a_state.sum_weight)
-        self.prob_mass = a_state.sum_weight / np.sum(a_state.sum_weight)
+        for i in range(0, len(pD_list)):
+            a_state_list[i].sum_weight += pD_list[i].pseudo_count * 1.0 / len(a_state_list[i].sum_weight)
+            pD_list[i].prob_mass = a_state_list[i].sum_weight / np.sum(a_state_list[i].sum_weight)
+        return pD_list
 
 
 class DiscreteDAState(object):

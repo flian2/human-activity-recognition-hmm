@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.sparse import csr_matrix
+from discrete_distr import DiscreteDistr
 
 
 class MarkovChain(object):
@@ -156,9 +157,9 @@ class MarkovChain(object):
         B = pX
         rows, columns = A.shape
         if rows != columns:
-            c = np.empty(shape=(n_states + 1)) # 1D array
+            c = np.empty(shape=(T + 1)) # 1D array
         else:
-            c = np.empty(shape=(n_states))
+            c = np.empty(shape=(T))
         alpha_hat = np.zeros(pX.shape)
 
         # Initialize init_alpha_tmp, c, alpha_hat
@@ -220,10 +221,34 @@ class MarkovChain(object):
 
         for t in range(T - 2, -1, -1):
             b_beta = pX[:, t + 1] * beta_hat[:, t + 1] # [n_states, ]
-            beta_hat[:, None, t] = self.transition_prob[:, :n_states] * b_beta[:, np.newaxis] / c[t]
+            beta_hat[:, None, t] = self.transition_prob[:, :n_states].dot(b_beta[:, np.newaxis]) / c[t]
 
         return beta_hat
 
+    def rand(self, n_samples):
+        """
+        Generate a random state sequence of length n_samples.
+        Input:
+        ------
+        n_samples: Maximum length of generated sequence.
+        Return:
+        ------
+        S: [n_samples, ]. Generated integer state sequence, not including the end state.
+            When mc is finite-duration, len(S) < n_samples; when mc is infinite-duration, len(S) == n_samples.
+            S[i] can take on value 1~n_states
+        """
+        S = np.zeros((n_samples))
+        n_states = self.n_states
+        init_state = DiscreteDistr(self.initial_prob)
+        state_t = DiscreteDistr(self.initial_prob)
+        for i in range(0, n_samples):
+            # Generate one sample using the distribution of current state
+            S[i] = state_t.rand(1)
+            if S[i] == n_states + 1:
+                return S[:i] # do not include the END state
+            p_mass = self.transition_prob[S[i] - 1, :]
+            state_t = DiscreteDistr(p_mass)
+        return S
 
 
 class McAState(object):
