@@ -9,6 +9,10 @@ class DiscreteDistr(ProbDistr):
     ...fill in the details...
     """
 
+    @property
+    def data_size(self):
+        return 1 # must be scalar
+
     def __init__(self, p_mass=None):
         """
         Input:
@@ -18,7 +22,6 @@ class DiscreteDistr(ProbDistr):
         -----------
         prob_mass: 1D array of probability values, always normalized.
         """
-        self.data_size = 1
         self.pseudo_count = 0
         
         if p_mass is not None:

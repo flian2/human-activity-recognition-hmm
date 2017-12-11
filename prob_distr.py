@@ -8,6 +8,10 @@ class ProbDistr(object):
     __metaclass__ = abc.ABCMeta
 
     #### Subclasses must implement these methods ####
+    @abc.abstractproperty
+    def data_size(self):
+        """ Dimension of vector in one sample."""
+        return
 
     @abc.abstractmethod
     def rand(self, nX):

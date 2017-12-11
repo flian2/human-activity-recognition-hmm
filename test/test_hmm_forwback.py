@@ -4,7 +4,6 @@ import numpy as np
 from discrete_distr import DiscreteDistr
 from hmm import HMM
 from markov_chain import MarkovChain
-import unittest
 
 def main():
     q1 = np.array([1, 0])
@@ -27,7 +26,10 @@ def main():
                                  [12.8571,   14.2857,    7.9365]])
     np.testing.assert_array_almost_equal(beta_hat, expected_beta_hat, decimal=4)
 
-    # gamma=alfaHat.*betaHat.*repmat(c(1:T),nStates,1) # to check
+    gamma = np.multiply(np.multiply(alpha_hat, beta_hat), np.tile(c[0:T], (n_states,1))) # to check
+    expected_gamma =  np.array([[1.0000,    0.1429,    0],
+                               [0,    0.8571,    1.0000]])
+    np.testing.assert_array_almost_equal(gamma, expected_gamma, decimal=4)
 
 if __name__ == "__main__":
     main()
