@@ -27,7 +27,7 @@ class GaussDistrTest(unittest.TestCase):
         gD1 = GaussDistr(mean=np.array([2.0]), std=np.array([0.2]))
         x = np.array([0, 0.5, 1, 2, 2.5, 3])[:, np.newaxis]
         logP_actual = gD1.logprob(x)
-        logP_exp = np.array([-49.3095,  -27.4345,  -11.8095, 0.6905, -2.4345, -11.8095])
+        logP_exp = np.array([[-49.3095,  -27.4345,  -11.8095, 0.6905, -2.4345, -11.8095]])
         np.testing.assert_array_almost_equal(logP_actual, logP_exp)
 
         # Multi dimensional, uncorrelated
@@ -38,7 +38,7 @@ class GaussDistrTest(unittest.TestCase):
                      [2.0, -0.2, 0.0],
                      [0.0, 0.0, 0.0]])
         logP_actual = gD2.logprob(x)
-        logP_exp = np.array([-4.5541, -4.6748, -17.0841, -9.1041])
+        logP_exp = np.array([[-4.5541, -4.6748, -17.0841, -9.1041]])
         np.testing.assert_array_almost_equal(logP_actual, logP_exp, decimal=4)
 
         # Multi dimensional, correlated
@@ -49,8 +49,24 @@ class GaussDistrTest(unittest.TestCase):
                      [1.0, -1.0],
                      [3.0, -5.0]])
         logP_actual = gD3.logprob(x)
-        logP_exp = np.array([-4.591951, -2.986951, -4.184451, -11.184451])
+        logP_exp = np.array([[-4.591951, -2.986951, -4.184451, -11.184451]])
         np.testing.assert_array_almost_equal(logP_actual, logP_exp)
+
+    def test_adapt_single_GaussD(self):
+        true_mean = np.array([-3.0, -1.0])
+        true_std = np.array([1.0, 3.0])
+        gD = GaussDistr(mean=true_mean, std=true_std)
+        train_distr = [gD]
+        x_training = gD.rand(1000)
+
+        aS = gD.adapt_start(train_distr)
+        aS = gD.adapt_accum(train_distr, aS, x_training)
+        train_distr = gD.adapt_set(train_distr, aS)
+
+        esti_mean = train_distr[0].mean
+        esti_std = train_distr[0].std
+        np.testing.assert_allclose(esti_mean, true_mean, rtol=0.1)
+        np.testing.assert_allclose(esti_std, true_std, rtol=0.1)
 
 
 if __name__ == '__main__':

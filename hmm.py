@@ -133,29 +133,6 @@ class HMM(object):
             logP_old = logprobs[n_training]
             self.adapt_set(aS)
 
-    def make_leftright_hmm(self, n_states, pD, obs_data, l_data=None):
-        """
-        Initialize and train a Hidden Markov Model to conform with a given set of training data sequence.
-        Input:
-        ------
-        n_states: Desired number of HMM states.
-        pD: a single object of some probability-distribution class
-        obs_data: [n_samples, n_features]. The concatenated training sequences. One sample of observed data vector is stored row-wise.
-        l_data: [n_sequence, ]. l_data[r] is the length of rth training sequence.
-        """
-        if n_states <= 0:
-            raise ValueError("Number of states must be >0")
-        if l_data is None:
-            l_data = [obs_data.shape[0]] # Just one single sequence
-        # Make left-right Markov Chain with finite duration
-        D = np.mean(l_data) / n_states # average state duration
-        mc = MarkovChain()
-        mc.init_left_right(n_states, D)
-        hmm = HMM(mc, pD)
-        hmm.init_leftright_outputdistr(obs_data, l_data) # crude initialize hmm.output_distr
-        # standard training
-        hmm.train(obs_data, l_data, 5, np.log(1.01))
-
     def adapt_start(self):
         """
         Initialize adaptation data structure for a single HMM object, to be saved between subsequent calls to adapt_accum.
@@ -231,12 +208,6 @@ class HMM(object):
         for s in range(1, int(max(S)) + 1):
             X[S == s, :] = self.output_distr[s - 1].rand(sum(S == s)).reshape(-1, self.data_size)
         return X, S
-    
-    def logprob(self, x):
-        """
-        to implement
-        """
-        return
 
 
 class AState(object):
@@ -244,3 +215,73 @@ class AState(object):
         self.MC = mc_state
         self.Out = out_state
         self.LogProb = logprob # to store the accumulated logprob of observation
+
+
+def logprob(hmm, x):
+    """
+    logP = logprob(hmm,x) gives conditional log(probability densities)
+    for an observed sequence of (possibly vector-valued) samples,
+    for each HMM object in an array of HMM objects.
+    Input:
+    ------
+    hmm: a single hmm object or a list of hmm objects
+    x: observation data. [n_samples, n_features]
+    Return:
+    ------
+    logP: 1D array. [n_objs, ]. logP[i] = log P[ x | hmm(i) ]
+    Method:
+    ------
+    Run the forward algorithm with each hmm on the observation sequence.
+
+    """
+    if isinstance(hmm, HMM):
+        hmm = [hmm]
+    if isinstance(hmm, list) and isinstance(hmm[0], HMM):
+        n_objs = len(hmm)
+        n_samples, n_features = x.shape
+        logP = np.zeros((n_objs))
+        for i in range(0, n_objs):
+            logp_act = 0
+            pX, logS = hmm[i].output_distr[0].prob(x, hmm[i].output_distr)
+            alpha_hat, c = hmm[i].state_gen.forward(pX)
+            # compute true probability with scale factor
+            if np.isscalar(logS):
+                logS = np.tile(logS, (n_samples))
+            for j in range(0, n_samples):
+                logp_act += np.log(c[j]) + logS[j]
+            if len(c) == n_samples:
+                # ln(c_0) + .. + ln(c_{T-1})
+                logP[i] = logp_act
+            else:
+                logP[i] = logp_act + np.log(c[-1]) # c[-1] is not scaled
+    else:
+        raise ValueError("The first input must be an hmm object or a list of hmm objects")
+    return logP
+
+
+def make_leftright_hmm(self, n_states, pD, obs_data, l_data=None):
+    """
+    Initialize and train a Hidden Markov Model to conform with a given set of training data sequence.
+    Input:
+    ------
+    n_states: Desired number of HMM states.
+    pD: a single object of some probability-distribution class
+    obs_data: [n_samples, n_features]. The concatenated training sequences. One sample of observed data vector is stored row-wise.
+    l_data: [n_sequence, ]. l_data[r] is the length of rth training sequence.
+    Return:
+    hmm: the trained left-right hmm object
+    """
+    if n_states <= 0:
+        raise ValueError("Number of states must be >0")
+    if l_data is None:
+        l_data = [obs_data.shape[0]] # Just one single sequence
+    # Make left-right Markov Chain with finite duration
+    D = np.mean(l_data) / n_states # average state duration
+    mc = MarkovChain()
+    mc.init_left_right(n_states, D)
+    hmm = HMM(mc, pD)
+    hmm.init_leftright_outputdistr(obs_data, l_data) # crude initialize hmm.output_distr
+    # standard training
+    hmm.train(obs_data, l_data, 5, np.log(1.01))
+    return hmm
+

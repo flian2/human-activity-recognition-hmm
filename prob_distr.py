@@ -21,11 +21,12 @@ class ProbDistr(object):
         return
 
     @abc.abstractmethod
-    def logprob(self, x_data):
+    def logprob(self, x_data, pD_list):
         """
         log probability of observed data sequence x
 
-        Return log prob of each element in the sequence x.
+        Return
+        logP: [n_pD, n_samples], logP[i, j] = log prob of x[j] in pD[i].
         """
         return
 
@@ -50,27 +51,38 @@ class ProbDistr(object):
 
     ###################################################
 
-    def prob(self, x):
+    def prob(self, x, pD_list=None):
         """
         Default method is the prob method is implemented in the subclass.
         Compute probability of each element in observed data sequence.
         Input:
         -------
-        (to change later: add input pD_list)
         x: 2D array [n_samples, n_features]
+        pD_list: list of ProbDistr objects, same class as self
         Return:
         -------
-        p: 1D array [n_samples, ]. probability of each sample x in the sequence.
-        logS: Scalar scaling factor, such that the true probability density is pX = p * exp(logS)
+        p: [n_pD, n_samples], p[i, j] = prob of x[j] in pD[i].
+        logS: scaling factor, such that the true probability density is pX = p .* exp(logS)
         """
         n_samples = x.shape[0]
-        logP = self.logprob(x)
-        logS = np.max(logP) # logS is scalar if self is a single object
-        logP = logP - logS
+        if pD_list is None:
+            pD_list = [self]
+        logP = self.logprob(x, pD_list) # [n_pD, n_samples]
+        if len(pD_list) == 1:
+            logS = np.max(logP)
+            logP = logP - logS
+        else:
+            logS = np.max(logP, axis=0) # logS is scalar if self is a single object
+            logP = logP - np.tile(logS, (len(pD_list), 1))
+        
         logP[np.isnan(logP)] = 0.0
         # correct when logS = -Inf
-        if logS == float('-Inf'):
-            p = np.zeros(n_samples)
+        if np.isscalar(logS):
+            if logS == float('-Inf'):
+                p = np.zeros(n_samples)
+            else:
+                p = np.exp(logP)
         else:
             p = np.exp(logP)
+            p[:, logS == float('-Inf')] = 0
         return p, logS

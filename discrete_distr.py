@@ -49,7 +49,7 @@ class DiscreteDistr(ProbDistr):
         pD_list: list of DiscreteDistr objects
         Return:
         ------
-        p: 1D array [n_pD, n_samples]. p[i, t] Probability for element t in Z for object i.
+        p: [n_pD, n_samples]. p[i, t] Probability for element t in Z for object i.
         logS: scalar factor, always == 0. True probability = p * exp(logS)
         """
         if len(Z.shape) > 1 and Z.shape[1] > 1:
@@ -109,10 +109,10 @@ class DiscreteDistr(ProbDistr):
 
     def adapt_accum(self, pD_list, a_state_list, obs_data, obs_weight=None):
         """
-        Adapt to a single DiscreteDistr object (may change later) by accumulating sufficient statistics from data.
+        Adapt to a list of DiscreteDistr objects by accumulating sufficient statistics from data.
         Input:
         ------
-        self: a single DiscreteDistr object (may change later)
+        self: a single DiscreteDistr object
         pD_list: a list of DiscreteDistr objects
         a_state_list: a list of accumulator data structure object from previous calls
         obs_data: [n_samples, ] or [n_samples, 1]. Observation data sequence.
