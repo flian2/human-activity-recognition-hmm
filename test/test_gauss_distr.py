@@ -6,7 +6,7 @@ import unittest
 from matplotlib import pyplot as plt
 
 class GaussDistrTest(unittest.TestCase):
-    def test_make_object(self):
+    def test_rand(self):
         # random variable, 1 dimension
         gD1 = GaussDistr(mean=np.array([2.0]), std=np.array([0.2]))
         x_training = gD1.rand(1000)
@@ -67,6 +67,17 @@ class GaussDistrTest(unittest.TestCase):
         esti_std = train_distr[0].std
         np.testing.assert_allclose(esti_mean, true_mean, rtol=0.1)
         np.testing.assert_allclose(esti_std, true_std, rtol=0.1)
+
+    def test_init_by_data(self):
+        gD = GaussDistr(mean=np.array([1.0, -1.0]), std=np.array([0.5, 2.0]))
+        x_training = gD.rand(1000)
+
+        gD_new = GaussDistr()
+        gD_new.init_by_data(x_training)
+        
+        np.testing.assert_allclose(gD_new.mean, np.array([1.0, -1.0]), rtol=0.1)
+        np.testing.assert_allclose(gD_new.std, np.array([0.5, 2.0]), rtol=0.1)
+        self.assertEqual(gD_new.allow_corr, False)
 
 
 if __name__ == '__main__':

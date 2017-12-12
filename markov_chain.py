@@ -99,7 +99,7 @@ class MarkovChain(object):
         # Elementwise multiply pX .* beta_hat
         pXbH = np.multiply(pX[:, 1:], beta_hat[:, 1:])
         # alpha_hat(i, t) * pX(j, t+1) * beta_hat(j, t+1) sum over t = 0... T-2
-        aHpXbH = alpha_hat[:, T - 1].dot(pXbH.T)
+        aHpXbH = alpha_hat[:, : T - 1].dot(pXbH.T)
         # [n_states, n_states] array where (i,j) element is xi(i, j, t) summed over t = 0...T-2
         xi = np.multiply(A[:, :n_states], aHpXbH)
         # Add xi to pS
@@ -111,7 +111,7 @@ class MarkovChain(object):
         # log(P(current sequence | hmm))
         logP = np.sum(np.log(c))
 
-        return a_state, logP
+        return a_state, gamma, logP
 
     def adapt_set(self, a_state):
         """
@@ -121,7 +121,8 @@ class MarkovChain(object):
         a_state: accumulated adapation state from previous calls of adapt_accum
         """
         self.initial_prob = a_state.pI / np.sum(a_state.pI) # normalized
-        self.transition_prob = np.divide( a_state.pS, np.tile( np.sum(a_state.pS, axis=1), (1, a_state.pS.shape[1]) ) )
+        self.transition_prob = np.divide( a_state.pS, \
+            np.tile( np.sum(a_state.pS, axis=1)[:, np.newaxis], (1, a_state.pS.shape[1]) ) )
 
 
     def forward(self, pX):

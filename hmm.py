@@ -66,6 +66,8 @@ class HMM(object):
         obs_data: [n_samples, n_features]. The concatenated training sequences.
         l_data: [n_sequence, ]. Length of subsequences of the training data. sum(l_data) = n_samples
         """
+
+        # Normally the self.output_distr is a dummy ProbDistr object with data members not assigned.
         # Check input size
         if l_data.sum() != obs_data.shape[0]:
             raise ValueError("Training data has %d samples, expecing the same number in l_data" % obs_data.shape[0])
@@ -78,15 +80,15 @@ class HMM(object):
         start_ind = np.append(np.array([0]), np.cumsum(l_data))
         n_states = self.n_states
         # Use average length length of each state to initialize output distribution
-        for i in range(0, len(n_states)):
+        for i in range(0, n_states):
             data_per_state = np.zeros((0, n_features))
-            for r in range(0, len(n_sequences)):
+            for r in range(0, n_sequences):
                 # staring point for the i-th state in the r-th subsequence
                 d_start = start_ind[r] + (i * l_data[r]) / n_states
                 d_end = start_ind[r] + ((i+1) * l_data[r]) / n_states # exclusive
                 data_per_state = np.concatenate((data_per_state, obs_data[d_start:d_end, :]), axis=0)
             # Very crude initialization, should be refined by training
-            self.output_distr[i] = self.output_distr.init_by_data(data_per_state)
+            self.output_distr[i].init_by_data(data_per_state)
 
     def train(self, obs_data, l_data, n_iter=10, min_step=float('Inf')):
         """
@@ -116,7 +118,7 @@ class HMM(object):
         for n_training in range(0, n_iter):
             aS = self.adapt_start()
             for r in range(0, len(l_data)):
-                aS, logP = self.adapt_accum(aS, obs_data[ixT[r]: ixT[r+1]])
+                aS, logP = self.adapt_accum(aS, obs_data[ixT[r]: ixT[r+1], :])
             logprobs[n_training] += logP
             logP_delta = logprobs[n_training] - logP_old
             logP_old = logprobs[n_training]
@@ -127,7 +129,7 @@ class HMM(object):
             logprobs.append(0.0)
             aS = self.adapt_start()
             for r in range(0, len(l_data)):
-                aS, logP = self.adapt_accum(aS, obs_data[ixT[r]: ixT[r+1]])
+                aS, logP = self.adapt_accum(aS, obs_data[ixT[r]: ixT[r+1], :])
             logprobs[n_training] += logP
             logP_delta = logprobs[n_training] - logP_old
             logP_old = logprobs[n_training]
@@ -169,7 +171,7 @@ class HMM(object):
         which are further used to adapt output_distr
         """
 
-        pX, l_scale = self.output_distr[0].prob(self.output_distr, obs_data) # scaled observation prob
+        pX, l_scale = self.output_distr[0].prob(obs_data, self.output_distr) # scaled observation prob
         # pX[i][t] * exp(l_scale[t]) == P(obs_data[t][:] | hmm.output_distr[i])
         a_state.MC, gamma, logP = self.state_gen.adapt_accum(a_state.MC, pX)
         # gamma[i][t] = P[hmmState = i | obs_data, hmm]
@@ -259,7 +261,7 @@ def logprob(hmm, x):
     return logP
 
 
-def make_leftright_hmm(self, n_states, pD, obs_data, l_data=None):
+def make_leftright_hmm(n_states, pD, obs_data, l_data=None):
     """
     Initialize and train a Hidden Markov Model to conform with a given set of training data sequence.
     Input:

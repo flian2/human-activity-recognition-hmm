@@ -71,8 +71,5 @@ class HmmForwBackTest(unittest.TestCase):
         np.testing.assert_array_almost_equal(logP_hmm, logP_hmm_exp, decimal=4)
 
 
-
-
-
 if __name__ == "__main__":
     unittest.main()

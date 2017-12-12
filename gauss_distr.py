@@ -21,7 +21,10 @@ class GaussDistr(ProbDistr):
     @property
     def data_size(self):
         """Length of the Gaussian R.V. """
-        return len(self.mean)
+        if self.mean is not None:
+            return len(self.mean)
+        else:
+            return 0
 
     @property
     def variance(self):
