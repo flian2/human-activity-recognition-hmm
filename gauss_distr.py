@@ -83,7 +83,7 @@ class GaussDistr(ProbDistr):
         x: [n_samples, n_features]
         """
         n_features = self.data_size
-        x = np.random.normal(0, 1, (n_samples, n_features)) # normal distributin
+        x = np.random.normal(0, 1, (n_samples, n_features)) # normal distribution
         # y = x * (diag(std) * cov_eigen^T)
         x = x.dot(np.dot(np.diag(self.std), np.transpose(self.cov_eigen))) # scaled to correct correlation
         x = x + np.tile(self.mean, (n_samples, 1)) # shifted to correct mean
