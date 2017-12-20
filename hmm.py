@@ -211,6 +211,25 @@ class HMM(object):
             X[S == s, :] = self.output_distr[s - 1].rand(sum(S == s)).reshape(-1, self.data_size)
         return X, S
 
+    def viterbi(self, x):
+        """
+        Calculate optimal hmm state sequence given observation data sequence for a single hmm object.
+        Input:
+        ------
+        x: [n_samples, n_features]. Sequence of observation data.
+        Return:
+        ------
+        s_opt: [n_samples, ]. Optimal state sequence.
+        logP: scalar. logP = log P(x, s_opt | hmm) 
+        """
+        T, n_features = x.shape
+        s_opt = np.zeros((T))
+        if n_features != self.data_size:
+            raise ValueError("Observation data size must be consistent with hmm object")
+        logp_x = self.output_distr[0].logprob(x, self.output_distr)
+        s_opt, logP = self.state_gen.viterbi(logp_x)
+        return s_opt, logP
+
 
 class AState(object):
     def __init__(self, mc_state, out_state, logprob):

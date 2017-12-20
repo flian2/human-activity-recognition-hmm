@@ -68,9 +68,10 @@ class DiscreteDistr(ProbDistr):
         logS = 0.0
         return p, logS
 
-    def logprob(self, x):
+    def logprob(self, x, pD_list=None):
         """ log probability mass """
-        return np.log(self.prob(x))
+        p, logS = self.prob(x, pD_list)
+        return np.log(p)
 
     def init_by_data(self, x):
         """

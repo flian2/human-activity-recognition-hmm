@@ -251,6 +251,50 @@ class MarkovChain(object):
             state_t = DiscreteDistr(p_mass)
         return S
 
+    def viterbi(self, logp_x):
+        """
+        Viterbi algorithm for calculating the optimal state sequence in a Markov Chain,
+        given log P(obs(t) | S(t) = i).
+        Input:
+        ------
+        logp_x: [n_states, n_samples]. logp_x[i, t] = log P(obs(t) | S(t) = i)
+        Return:
+        ------
+        s_opt: [n_samples, ]. Vector with most probable state sequence.
+        logP: log P(x(0)...x(T-1), S(0),...S(T-1) | hmm )
+        Method:
+        ------
+        Optimal state sequence maximize the probability: P(x(0),...,x(T-1), S(0),...,S(T-1) | hmm)
+        """
+        T = logp_x.shape[1]
+        n_states = self.n_states
+
+        log_A = np.maximum(np.log(self.transition_prob), np.finfo(float).min) 
+        # log of transition prob matrix, prevents -inf
+        log_A = log_A[:, :n_states]
+        back_pointer = np.zeros((n_states, T))
+        s_opt = np.zeros((T))
+
+        # delta = log P(x(0), s(0) | hmm)
+        delta = np.maximum(np.log(self.initial_prob), np.finfo(float).min) + logp_x[:, 0]
+        for t in range(1, T):
+            # i_delta[j] = argmax_i {log P ( s(t-1)=i, s(t)=j, x(0)... x(t-1) | hmm ) }
+            p_ij = np.tile(delta[:, np.newaxis], (1, n_states)) + log_A
+            i_delta = np.argmax(p_ij, axis=0)
+            delta = p_ij[i_delta, np.arange(0, n_states)] # 1D array
+            # delta[j] = max_{i_0, ... i_{t-1}}{log P(s(0)=i_0, .. s(t)=i_{t}, x(0),...x(t) | hmm)}
+            delta += logp_x[:, t]
+            back_pointer[:, t] = i_delta
+        # delta[j] = max_{i_0, ... i_{T-2}}{log P(s(0)=i_0, .. s(T)=i_{T-1}, x(0),...x(T-1) | hmm)}
+        # Backtrack
+        i_delta = np.argmax(delta)
+        logP = delta[i_delta]
+        s_opt[T - 1] = i_delta
+        for t in range(T - 2, -1, -1):
+            s_opt[t] = back_pointer[s_opt[t + 1], t + 1]
+
+        return s_opt + 1, logP # state index from 1
+
 
 class McAState(object):
     """
