@@ -3,6 +3,7 @@ import abc
 import warnings
 import numpy as np
 from numpy import linalg as LA
+import matplotlib.pyplot as plt
 from prob_distr import ProbDistr
 
 class GaussDistr(ProbDistr):
@@ -247,6 +248,24 @@ class GaussDistr(ProbDistr):
                     pD_list[i].std = np.sqrt(np.diag(cov_estim))
 
         return pD_list
+
+    def plot_mixture_centroids(self, gaussians, colors):
+        """
+        Visualize mean and variance of gaussians on a 2D plot
+        Input: 
+        ---------
+        gaussians: list of GaussDistr objects.
+        colors: list of colors. Different color for different GaussDistr objects
+        """
+        n_mixtures = len(gaussians)
+        for i in range(0, n_mixtures):
+            m = gaussians[i].mean
+            v = np.dot(gaussians[i].cov_eigen, np.diag(gaussians[i].std))
+            for k in range(0, v.shape[0]):
+                x_start = m - v[:, k] # [n_features, 1]
+                x_end = m + v[:, k]
+                # show feature_0, feature[1]
+                plt.plot([x_start[0], x_end[0]], [x_start[1], x_end[1]], c=colors[i % len(colors)])
 
 
 class GaussDAState(object):

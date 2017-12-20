@@ -101,14 +101,14 @@ class GaussMixDistr(ProbDistr):
         n_samples: length of random vectors generated.
         Return:
         x: [n_samples, n_features]
-        rand_int: vector of indices of randomly chosen GuassDistr objects. Can take 0 ~ (len(gaussians) - 1)
+        rand_int: vector of indices of randomly chosen GuassDistr objects. Can take 1 ~ len(gaussians)
         """
         # Generate random integer sequence according to discrete distribution with pmass mix_weight.
-        rand_int = DiscreteDistr(self.mix_weight).rand(n_samples) - 1
+        rand_int = DiscreteDistr(self.mix_weight).rand(n_samples)
         n_features = self.data_size
         x = np.zeros((n_samples, n_features))
-        for i in range(0, len(self.gaussians)):
-            x[rand_int == i, :] = self.gaussians[i].rand(np.sum(rand_int == i))
+        for i in range(1, len(self.gaussians) + 1):
+            x[rand_int == i, :] = self.gaussians[i - 1].rand(np.sum(rand_int == i))
         return x, rand_int
 
     def logprob(self, x, pD_list=None):
@@ -299,7 +299,32 @@ class GaussMixDistr(ProbDistr):
 
         return np.array(logprobs)
 
+    def plot_mixture_centroids(self, pD_list, colors):
+        """
+        Visualize GaussMixDistr objects on a 2D plot
+        Input: 
+        ---------
+        gaussians: list of GaussMixDistr objects.
+        colors: list of colors. Different color for different GaussMixDistr objects, 
+        same color among gaussians within one mixture
+        """
+        n_obj = len(pD_list)
+        for i in range(0, n_obj):
+            gaussians = pD_list[i].gaussians
+            gaussians[0].plot_mixture_centroids(gaussians, [colors[i]])
+
+
 class GmmAState(object):
     def __init__(self):
         self.gaussians = None
         self.mix_weight = None
+
+def make_gmm_single(mean_s, std_s, m_w=None):
+    gaussians = []
+    n_mixtures = mean_s.shape[0]
+    if m_w is None:
+        m_w = np.ones((n_mixtures))
+    for i in range(0, mean_s.shape[0]):
+        gaussians.append( GaussDistr(mean=mean_s[i, :], std=std_s[i, :]) )
+    gmm = GaussMixDistr(gaussians, m_w)
+    return gmm

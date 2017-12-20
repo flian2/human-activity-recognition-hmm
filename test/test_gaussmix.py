@@ -26,11 +26,11 @@ class GaussMixDistrTest(unittest.TestCase):
         x, S = gmm.rand(10000)
 
         # plot random samples
-        n_mixtures = int(np.max(S)) + 1
+        n_mixtures = int(np.max(S)) # S index from 1
         colors = cm.rainbow(np.linspace(0, 1, n_mixtures))
         
-        for i in range(0, n_mixtures):
-            plt.scatter(x[S == i, 0], x[S == i, 1], c=colors[i])
+        for i in range(1, n_mixtures + 1):
+            plt.scatter(x[S == i, 0], x[S == i, 1], c=colors[i-1])
         plt.legend(("mixture 1", "mixture 2", "mixture 3", "mixture 4"))
         # should be four mixtures
         plt.show()
@@ -89,9 +89,10 @@ class GaussMixDistrTest(unittest.TestCase):
             print "Mean: ", gmm_new.gaussians[i].mean
             print "Std: ", gmm_new.gaussians[i].std
         print "mix_weight: ", gmm_new.mix_weight
-        colors = cm.rainbow(np.linspace(0, 1, n_mixtures))
+        colors = cm.rainbow(np.linspace(0, 1, 4))
         plot_samples_in_mixtures(x, S, colors)
-        plot_mixture_centroids(gmm_new.gaussians, colors)
+        gmm_new.gaussians[0].plot_mixture_centroids(gmm_new.gaussians, colors)
+        plt.show()
 
     def test_adapt_single_gmm(self):
         mean_s = np.array([[-3.0, 0.0],
@@ -124,7 +125,8 @@ class GaussMixDistrTest(unittest.TestCase):
         std_init = np.ones((4, 2))
         gmm_new = make_gmm_single(mean_init, std_init)
         plot_samples_in_mixtures(x, S, colors)
-        plot_mixture_centroids(gmm_new.gaussians, colors)
+        gmm_new.gaussians[0].plot_mixture_centroids(gmm_new.gaussians, colors)
+        plt.show()
 
         # Train
         for n in range(0, 10):
@@ -133,8 +135,10 @@ class GaussMixDistrTest(unittest.TestCase):
             aS = gmm_new.adapt_accum(pD_list, aS, x)
             pD_list = gmm_new.adapt_set(pD_list, aS)
             plot_samples_in_mixtures(x, S, colors)
-            plot_mixture_centroids(gmm_new.gaussians, colors)
+            gmm_new.gaussians[0].plot_mixture_centroids(gmm_new.gaussians, colors)
+            plt.show()
         print "after training: mix_weight: ", gmm_new.mix_weight
+
 
 def make_gmm_single(mean_s, std_s, m_w=None):
     gaussians = []
@@ -173,24 +177,10 @@ def make_gmm_two():
     return gmm_list
 
 def plot_samples_in_mixtures(x, S, colors):
-    n_mixtures = int(np.max(S)) + 1
+    n_mixtures = int(np.max(S))
     
-    for i in range(0, n_mixtures):
-        plt.scatter(x[S == i, 0], x[S == i, 1], c=colors[i])
-    plt.legend(("mixture 1", "mixture 2", "mixture 3", "mixture 4"))
-
-def plot_mixture_centroids(gaussians, colors):
-    # Visualize mean and variance of gaussians on a 2D plot
-    n_mixtures = len(gaussians)
-    for i in range(0, n_mixtures):
-        m = gaussians[i].mean
-        v = np.dot(gaussians[i].cov_eigen, np.diag(gaussians[i].std))
-        for k in range(0, v.shape[0]):
-            x_start = m - v[:, k] # [n_features, 1]
-            x_end = m + v[:, k]
-            # show feature_0, feature[1]
-            plt.plot([x_start[0], x_end[0]], [x_start[1], x_end[1]], c=colors[i])
-    plt.show()
+    for i in range(1, n_mixtures + 1):
+        plt.scatter(x[S == i, 0], x[S == i, 1], c=colors[i - 1])
 
 
 if __name__ == '__main__':
