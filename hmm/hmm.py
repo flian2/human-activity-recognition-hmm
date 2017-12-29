@@ -176,8 +176,7 @@ class HMM(object):
         a_state.MC, gamma, logP = self.state_gen.adapt_accum(a_state.MC, pX)
         # gamma[i][t] = P[hmmState = i | obs_data, hmm]
         a_state.Out = self.output_distr[0].adapt_accum(self.output_distr, a_state.Out, obs_data, gamma)
-        if len(l_scale) == 1:
-            # when? len(hmm.output_distr) == 1
+        if np.isscalar(l_scale): # same l_scale for each sample 
             a_state.LogProb += logP + obs_data.shape[0] * l_scale
         else:
             a_state.LogProb += logP + np.sum(l_scale) # logprob(hmm, obs_data)

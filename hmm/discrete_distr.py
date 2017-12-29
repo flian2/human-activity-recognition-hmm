@@ -133,7 +133,7 @@ class DiscreteDistr(ProbDistr):
         if obs_weight is None:
             obs_weight = np.ones((n_pD, n_samples))
         for i in range(0, n_pD):
-            max_label = max(max_obs, len(self.prob_mass))
+            max_label = int(max(max_obs, len(self.prob_mass)))
             prev_max_label = a_state_list[i].sum_weight.shape[0]
             if prev_max_label < max_label:
                 # extend size

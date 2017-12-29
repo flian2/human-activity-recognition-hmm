@@ -12,6 +12,43 @@ from test_gaussmix import plot_samples_in_mixtures
 import unittest
 
 class HmmTrainTest(unittest.TestCase):
+
+    def test_train_leftrighthmm_discreted(self):
+        n_states = 3
+        A = np.array([[0.95, 0.05, 0.0, 0.0],
+                     [0.0, 0.95, 0.05, 0.0],
+                     [0.0, 0.0, 0.95, 0.05]]) 
+        p0 = np.array([1, 0, 0])
+        mc = MarkovChain(p0, A)
+        pD = []
+        pD.append( DiscreteDistr(np.array([0.5, 0.5])) )
+        pD.append( DiscreteDistr(np.array([0.8, 0.2])) )
+        pD.append( DiscreteDistr(np.array([0.2, 0.8])) )
+        # Generate training samples
+        hmm = HMM(mc, pD)
+        x_training = np.empty((0, 1))
+        l_xT = np.empty((0)) # length of subsequence
+        sT = np.empty((0)) # state sequence
+        np.random.seed(100)
+        for t in range(0, 20):
+            x, s = hmm.rand(1000)
+            x_training = np.concatenate((x_training, x), axis=0)
+            sT = np.concatenate((sT, s))
+            l_xT = np.concatenate( (l_xT, np.array([s.shape[0]])) )
+
+        # Initialize new hmm, only know n_states = 3, distribution is DiscreteD.
+        hmm_new = init_leftright_hmm(3, DiscreteDistr(), x_training, l_xT)
+        # Train hmm, simplify procedure in hmm.train
+        i_xT = np.append(np.array([0]), np.cumsum(l_xT)) # start index for each subsequence
+        for n_training in range(0, 10):
+            aS = hmm_new.adapt_start()
+            for r in range(0, len(l_xT)):
+                aS, _ = hmm_new.adapt_accum(aS, x_training[i_xT[r]: i_xT[r+1], :])
+            hmm_new.adapt_set(aS)
+
+        for i in range(0, 3):
+            print "Output distribition %d: " % i, hmm_new.output_distr[i].prob_mass
+
     def test_train_leftrighthmm_gaussd(self):
         n_states = 3
         A = np.array([[0.95, 0.05, 0.0, 0.0],
