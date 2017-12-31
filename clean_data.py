@@ -19,7 +19,8 @@ def moving_avg(df, n, step):
 
     for i, t in enumerate(new_t):
         data[i, :] = np.nanmean(df.iloc[t: t + n, :].values, axis=0) # ignore nan when computing mean.
-    return data
+    # discard the last window
+    return data[:-1, :]
 
 def moving_vote_majority(label_df, n, step):
     """
@@ -36,7 +37,7 @@ def moving_vote_majority(label_df, n, step):
     labels = np.zeros((len(new_t)))
     for i, t in enumerate(new_t):
         labels[i] = stats.mode(label_df.iloc[t: t + n].values)[0][0]
-    return labels
+    return labels[:-1]
 
 def fill_missing(training, test, col_threshold, replace):
     """

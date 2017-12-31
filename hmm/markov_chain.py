@@ -251,7 +251,7 @@ class MarkovChain(object):
             state_t = DiscreteDistr(p_mass)
         return S
 
-    def viterbi(self, logp_x):
+    def viterbi(self, logp_x, allowZeroProb=False):
         """
         Viterbi algorithm for calculating the optimal state sequence in a Markov Chain,
         given log P(obs(t) | S(t) = i).
@@ -269,14 +269,22 @@ class MarkovChain(object):
         T = logp_x.shape[1]
         n_states = self.n_states
 
-        log_A = np.maximum(np.log(self.transition_prob), np.finfo(float).min) 
+        # prevent probability to be zero
+        if allowZeroProb is True:
+            log_A = np.log(self.transition_prob)
+        else:
+            log_A = np.log(np.maximum(self.transition_prob, np.finfo(float).tiny)) # convert zero probability to realmin
+
         # log of transition prob matrix, prevents -inf
         log_A = log_A[:, :n_states]
         back_pointer = np.zeros((n_states, T))
         s_opt = np.zeros((T))
 
         # delta = log P(x(0), s(0) | hmm)
-        delta = np.maximum(np.log(self.initial_prob), np.finfo(float).min) + logp_x[:, 0]
+        if allowZeroProb is True:
+            delta = np.log(self.initial_prob) + logp_x[:, 0]
+        else:
+            delta = np.log(np.maximum(self.initial_prob, np.finfo(float).tiny)) + logp_x[:, 0]
         for t in range(1, T):
             # i_delta[j] = argmax_i {log P ( s(t-1)=i, s(t)=j, x(0)... x(t-1) | hmm ) }
             p_ij = np.tile(delta[:, np.newaxis], (1, n_states)) + log_A
