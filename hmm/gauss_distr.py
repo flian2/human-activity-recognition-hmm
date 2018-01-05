@@ -6,6 +6,8 @@ from numpy import linalg as LA
 import matplotlib.pyplot as plt
 from prob_distr import ProbDistr
 
+# Based on the MATLAB code from 
+# A. Leijon, "Pattern recognition fundamental theory and exercise problems," KTH Elec- tral Engineering, 2010
 class GaussDistr(ProbDistr):
     """ Class of Gaussian distribution
     Properties:

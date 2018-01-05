@@ -5,7 +5,8 @@ import copy
 from markov_chain import MarkovChain
 from prob_distr import ProbDistr
 
-
+# Based on the MATLAB code from 
+# A. Leijon, "Pattern recognition fundamental theory and exercise problems," KTH Elec- tral Engineering, 2010
 class HMM(object):
     """
     Hidden Markov Model class

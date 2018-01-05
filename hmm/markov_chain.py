@@ -2,7 +2,8 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from discrete_distr import DiscreteDistr
 
-
+# Based on the MATLAB code from 
+# A. Leijon, "Pattern recognition fundamental theory and exercise problems," KTH Elec- tral Engineering, 2010
 class MarkovChain(object):
     """
     Markov Chain class

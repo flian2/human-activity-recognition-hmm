@@ -1,5 +1,8 @@
 import numpy as np
 import warnings
+
+# Based on the MATLAB code from 
+# A. Leijon, "Pattern recognition fundamental theory and exercise problems," KTH Elec- tral Engineering, 2010
 class VectorQuantizer(object):
     """
     Vector quantizer class. 
