@@ -156,7 +156,12 @@ class DiscreteDistr(ProbDistr):
         """
         for i in range(0, len(pD_list)):
             a_state_list[i].sum_weight += pD_list[i].pseudo_count * 1.0 / len(a_state_list[i].sum_weight)
-            pD_list[i].prob_mass = a_state_list[i].sum_weight / np.sum(a_state_list[i].sum_weight)
+            if np.sum(a_state_list[i].sum_weight) == 0:
+                # if any output value not seen, this state is never reached, keep prob_mass = 0
+                # avoid divide by 0
+                pD_list[i].prob_mass = a_state_list[i].sum_weight
+            else:
+                pD_list[i].prob_mass = a_state_list[i].sum_weight / np.sum(a_state_list[i].sum_weight)
         return pD_list
 
 

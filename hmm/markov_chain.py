@@ -87,7 +87,7 @@ class MarkovChain(object):
         # Get scaled forward backward variables
         alpha_hat, c = self.forward(pX)
         beta_hat = self.backward(pX, c)
-
+        
         # Compute gamma
         gamma = np.multiply( np.multiply(alpha_hat, beta_hat), np.tile(c[:T], (n_states, 1)) )
         # Initial probabilities, a_state.pI += gamma(t=0)
@@ -123,7 +123,11 @@ class MarkovChain(object):
         self.initial_prob = a_state.pI / np.sum(a_state.pI) # normalized
         self.transition_prob = np.divide( a_state.pS, \
             np.tile( np.sum(a_state.pS, axis=1)[:, np.newaxis], (1, a_state.pS.shape[1]) ) )
-
+        # if state i is never encountered in training, set trainsition prob to A[i,i]=1, A[i,j]=0
+        tmp = np.eye((self.n_states))
+        nan_rows = np.any(np.isnan(self.transition_prob), axis=1)
+        tmp[np.logical_not(nan_rows), :] = 0
+        self.transition_prob[nan_rows, :self.n_states] = tmp[nan_rows, :]
 
     def forward(self, pX):
         """
@@ -174,10 +178,22 @@ class MarkovChain(object):
                 alpha_tmp[j] = B[j, t] * np.inner( alpha_hat[:, t-1], A[:, j] )
             c[t] = np.sum(alpha_tmp)
             alpha_tmp /= c[t]
+            # if c[t] == 0:
+            #     print alpha_tmp
             alpha_hat[:, t] = alpha_tmp
 
         if rows != columns:
             c[T] = np.inner(alpha_hat[:, T - 1], A[:, columns - 1])
+
+        # if not np.any(np.isnan(pX)) and np.any(np.isnan(alpha_hat)):
+        #     print "q"
+        #     print q
+        #     print "alpha_tmp"
+        #     print alpha_tmp
+        #     print "alpha_hat"
+        #     print alpha_hat
+        #     print "transition_prob"
+        #     print self.transition_prob
 
         return alpha_hat, c
 
@@ -274,6 +290,9 @@ class MarkovChain(object):
             log_A = np.log(self.transition_prob)
         else:
             log_A = np.log(np.maximum(self.transition_prob, np.finfo(float).tiny)) # convert zero probability to realmin
+            # log_A = np.log(self.transition_prob)
+            # log_A[np.isinf(log_A)] = np.log(np.finfo(float).tiny) * 10 
+            # # make this number small than log(realmin) in case of low output distr likelihood
 
         # log of transition prob matrix, prevents -inf
         log_A = log_A[:, :n_states]

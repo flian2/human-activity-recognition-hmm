@@ -171,7 +171,11 @@ class GaussMixDistr(ProbDistr):
                 warnings.warn("Too few data for %d-th GaussDistr" % i)
             else:
                 var_x = np.var(x[x_codes == i, :], axis=0)
-            self.gaussians[i].mean = x_centers[i, :]
+            # x_centers row size might be smaller than n_mixtures if it is reduced during training
+            if x_centers.shape[0] > i:
+                self.gaussians[i].mean = x_centers[i, :]
+            else:
+                self.gaussians[i].mean = x_centers[-1, :]
             # Only use the diagonal variance
             if self.gaussians[i].allow_corr:
                 self.gaussians[i].covariance = np.diag(var_x)
