@@ -21,14 +21,12 @@ def make_outputdistr_given_nmix(train, train_labels, class2label, n_mix):
         outputdistr_stats.iloc[i, :] = [n_mix[i], gmm.logprob(train[train_labels == label, :]).mean()]
     return outputdistr_gmm, outputdistr_stats
 
-def loglikelihood(mc, x, prob_mass, gmms):
+def loglikelihood(hmm_top, x, gmms):
     """
     Compute log likelihood for each observation sample given the MarkovChain of top-layer hmm, 
     and gmm distribution P(X(t) | activity label = i).
     Input:
-    mc: MarkovChain for top-layer hmm. 
-    prob_mass: probability mass for output distribution of top-layer hmm. 
-               prob_mass[i, j] = P[activity_label = j | S_{hmm_top} = i]
+    hmm_top: top-layer hmm
     gmms: list of gmm object. gmms[i] has P(X(t) | activity_label = i)
     Return:
     logp_x: [n_states, n_samples]. logp_x[i, t] = log P[X(t) | S_{hmm_top} = i]
@@ -37,25 +35,26 @@ def loglikelihood(mc, x, prob_mass, gmms):
     P(X(t) | state = i ) = \sum_{label i} P(X(t) | label = j, state = i) * P(label = j | state = i)
     """
     T = x.shape[0]
-    n_states = mc.n_states
+    n_states = hmm_top.n_states
     logp_x = np.zeros((n_states, T))
-    for state in range(0, mc.n_states):
-        label_ind = np.argwhere(prob_mass[state, :] > 0)
-        p0 = prob_mass[state, prob_mass[state, :] > 0]
+    for state in range(0, hmm_top.n_states):
+        p0 = hmm_top.output_distr[state].prob_mass
+        label_ind = np.argwhere(p0 > 0)
+        p0 = p0[p0 > 0]
         logprob_per_label = gmms[0].logprob(x, [gmms[i] for i in label_ind])
         logp_x[state, :] = np.log( p0[np.newaxis, :].dot(np.exp(logprob_per_label)) )[0, :]
 
     return logp_x
 
-def viterbi_state_sequence(mc, x, x_len, prob_mass, gmms):
+def viterbi_state_sequence(hmm_top, x, x_len, gmms):
     """
     Predict top-layer hmm state sequence using viterbi algorithm.
     Input
+    hmm_top: top-layer hmm
+             hmm_top.state_gen: MarkovChain for top-layer hmm.
+             hmm_top.output_distr: hmm_top.output_distr[i][j] = P[activity_label = j | S_{hmm_top} = i]
     x: [T, data_size]. observation vector sequence stacked together
     x_len: length of subsequences
-    mc:        MarkovChain for top-layer hmm.
-    prob_mass: probability mass for output distribution of top-layer hmm. 
-               prob_mass[i, j] = P[activity_label = j | S_{hmm_top} = i]
     gmms:      list of gmm object. gmms[i] has P(X(t) | activity_label = i)
     Return:
     s_opt: [T, ] predicted top-layer hmm state sequence
@@ -65,8 +64,8 @@ def viterbi_state_sequence(mc, x, x_len, prob_mass, gmms):
     s_opt = np.zeros((x.shape[0]))
     logP = np.zeros((len(x_len)))
     for i in range(0, len(x_len)):
-        logp_x = loglikelihood(mc, x[start_ind:start_ind + x_len[i], :], prob_mass, gmms)
-        s_opt[start_ind: start_ind + x_len[i]], logP[i] = mc.viterbi(logp_x)
+        logp_x = loglikelihood(hmm_top, x[start_ind:start_ind + x_len[i], :], gmms)
+        s_opt[start_ind: start_ind + x_len[i]], logP[i] = hmm_top.state_gen.viterbi(logp_x)
         start_ind += x_len[i]
     return s_opt - 1, logP # the state sequence index from 0
 
@@ -143,8 +142,7 @@ def hmm_twolayer_train(train, train_labels, train_len, n_mix):
     """
     Train a twolayer hmm model.
     Return:
-    mc_top: MarkovChain for top-layer hmm.
-    prob_mass_top: probability mass for top-layer hmm.
+    hmm_top: top-layer hmm object.
     sub_mcs: list of MarkovChain objects for sub-layer hmm.
     gmms: GMM output distribution for sub-layer hmm.
     """
@@ -157,10 +155,8 @@ def hmm_twolayer_train(train, train_labels, train_len, n_mix):
     discreteD = DiscreteDistr(np.ones((6))) # a discrete distribution with 6 possible output
     n_states = 6
     hmm_top = make_leftright_hmm(n_states, discreteD, obs_data=label_transfer, l_data=train_len)
-    prob_mass = np.zeros((n_states, n_states))
     for i in range(0, n_states):
-        prob_mass[i, :] = hmm_top.output_distr[i].prob_mass
-    prob_mass[prob_mass < 1e-2] = 0
+        hmm_top.output_distr[i].prob_mass[hmm_top.output_distr[i].prob_mass < 1e-2] = 0
     
     # Train a sub-layer ergodic hmm for each top-layer hmm state, 
     # the training state sequence for hmm_top can be predicted using viterbi algorithm.
@@ -175,17 +171,17 @@ def hmm_twolayer_train(train, train_labels, train_len, n_mix):
     # Sub-layer hmm training
     sub_mcs = make_sub_hmm_mc(train_states, train_len, np.maximum(0, train_labels - 100), n_states)
 
-    return hmm_top.state_gen, prob_mass, sub_mcs, gmms
+    return hmm_top, sub_mcs, gmms
 
-def hmm_twolayer_predict(val, val_len, mc_top, prob_mass_top, sub_mcs, gmms):
+def hmm_twolayer_predict(hmm_top, sub_mcs, gmms, val, val_len):
     # Predict validation set labels
-    val_states, _ = viterbi_state_sequence(mc_top, val, val_len, prob_mass_top, gmms)
+    val_states, _ = viterbi_state_sequence(hmm_top, val, val_len, gmms)
     predicted_labels = predict_subhmm_labels(val_states, val, val_len, sub_mcs, gmms)
     return val_states, predicted_labels
 
 def hmm_gmm_F1score(train, val, train_labels, val_labels, train_len, val_len, n_mix):
-    mc_top, prob_mass_top, sub_mcs, gmms = hmm_twolayer_train(train, train_labels, train_len, n_mix)
-    val_states, predicted_labels = hmm_twolayer_predict(val, val_len, mc_top, prob_mass_top, sub_mcs, gmms)
+    hmm_top, sub_mcs, gmms = hmm_twolayer_train(train, train_labels, train_len, n_mix)
+    val_states, predicted_labels = hmm_twolayer_predict(hmm_top, sub_mcs, gmms, val, val_len)
     
     # Evaluate the weighted F1 score
     true_labels = np.maximum(0, val_labels - 100)

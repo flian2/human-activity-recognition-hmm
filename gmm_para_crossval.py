@@ -39,18 +39,18 @@ def search_nmix_gmm_crossval(train, train_labels, train_len, n_states):
                 val_sub_labels = train_labels[val_mask]
                 val_sub_len = [train_len[fold]]
                 # cross validate
-                mc_top, prob_mass_top, sub_mcs, gmms = \
+                hmm_top, sub_mcs, gmms = \
                     hmm_twolayer_train(train_sub, train_sub_labels, train_sub_len, n_mix)
                 val_states, predicted_labels = \
-                    hmm_twolayer_predict(val_sub, val_sub_len, mc_top, prob_mass_top, sub_mcs, gmms)
+                    hmm_twolayer_predict(hmm_top, sub_mcs, gmms, val_sub, val_sub_len)
 
                 true_labels = np.maximum(val_sub_labels - 100, 0)
                 f1_s.append(f1_score(true_labels, predicted_labels, average='weighted'))
             if np.mean(f1_s) > max_score:
                 max_score = np.mean(f1_s)
                 n_opt = nm
-            print "current n_mix: ", n_mix
-            print "currrent max f1 score ", max_score
+            # print "current n_mix: ", n_mix
+            # print "currrent max f1 score ", max_score
 
         n_mix[label] = n_opt
     return n_mix, max_score
@@ -61,12 +61,12 @@ def main():
     # Feature extraction
     train_reduced, test_reduced, train_labels, test_labels, train_len, test_len = \
         extract_feature_per_person(person)
-    n_mix = [6, 6, 6, 2, 2, 6]
-    f1 = hmm_gmm_F1score(train_reduced, test_reduced, train_labels, test_labels, train_len, test_len, n_mix)
-    print f1
-    # n_mix, max_f1 = search_nmix_gmm_crossval(train_reduced, train_labels, train_len, 6)
-    # print n_mix
-    # print max_f1
+    # n_mix = [6, 6, 6, 2, 2, 6]
+    # f1 = hmm_gmm_F1score(train_reduced, test_reduced, train_labels, test_labels, train_len, test_len, n_mix)
+    # print f1
+    n_mix, max_f1 = search_nmix_gmm_crossval(train_reduced, train_labels, train_len, 6)
+    print n_mix
+    print max_f1
 
 
 if __name__ == '__main__':
